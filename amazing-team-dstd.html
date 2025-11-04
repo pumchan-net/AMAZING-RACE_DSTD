@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Amazing Team - DSTD</title>
+<style>
+  :root{--bg:#f7f8fb;--card:#fff;--muted:#666;--blue:#3b82f6;--purple:#8b5cf6;}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:var(--bg); margin:0; padding:24px; color:#111;}
+  .container{max-width:720px;margin:0 auto;}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+  h1{font-size:20px;margin:0;}
+  p.lead{margin:0;color:var(--muted);}
+  .card{background:var(--card);padding:18px;border-radius:12px;box-shadow:0 6px 18px rgba(20,20,50,0.06);margin-bottom:12px;}
+  label{display:block;margin-bottom:8px;font-weight:600;}
+  input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;box-sizing:border-box;}
+  button{padding:10px 14px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--blue),var(--purple));color:#fff;font-weight:700;cursor:pointer;}
+  .result{margin-top:12px;padding:12px;border-radius:10px;background:#eef2ff;border:1px solid #e0e7ff;}
+  .team-badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;}
+  .tb-blue{background:#e6f0ff;color:var(--blue);}
+  .tb-purple{background:#f3e8ff;color:var(--purple);}
+  .muted{color:var(--muted);font-size:14px;}
+  footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px;}
+  .admin-note{font-size:13px;color:#444;}
+  table{width:100%;border-collapse:collapse;margin-top:8px;}
+  th,td{padding:8px;border-bottom:1px solid #f0f2f6;text-align:left;font-size:14px;}
+  .small{font-size:13px;color:var(--muted);}
+  .danger{color:#b91c1c;}
+  .export-btn{margin-top:10px;background:#111;color:#fff;padding:8px 10px;border-radius:8px;border:0;cursor:pointer;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Amazing Team - DSTD</h1>
+      <p class="lead">Nhập tên và nhấn "Random chia nhóm" — bạn chỉ thấy đội của mình. (Mỗi đội tối đa 3 người)</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" id="playerCard">
+      <label for="nameInput">Tên của bạn</label>
+      <input type="text" id="nameInput" placeholder="Nhập tên (ví dụ: Nguyễn Văn A)" autocomplete="off" />
+      <div style="height:10px;"></div>
+      <button id="joinBtn">Random chia nhóm</button>
+
+      <div id="playerResult" class="result hidden" aria-live="polite"></div>
+      <p class="muted small">Chú ý: Sau khi nhấn, bạn chỉ thấy đội của mình. Kết quả đầy đủ chỉ xem được bởi Admin.</p>
+    </section>
+
+    <section class="card hidden" id="adminCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <strong>Admin - Bảng thống kê</strong>
+          <div class="small">Link admin (bí mật) bật ?admin=1 để xem đầy đủ.</div>
+        </div>
+        <div class="small">Tổng: <span id="totalCount">0</span>/6</div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <strong>Đội Gia Bách 💙 (<span id="countA">0</span>/3)</strong>
+        <table id="tableA"><thead><tr><th>Tên</th><th>Thời gian</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div style="margin-top:12px;">
+        <strong>Đội Anh Thư 💜 (<span id="countB">0</span>/3)</strong>
+        <table id="tableB"><thead><tr><th>Tên</th><th>Thời gian</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <button class="export-btn" id="exportBtn">Xuất CSV</button>
+      <button class="export-btn" id="clearBtn" style="background:#ff5555;margin-left:8px;">Xóa dữ liệu</button>
+      <div class="small" style="margin-top:8px;color:#444;">Dữ liệu lưu trong localStorage của domain nơi file này chạy. Nếu bạn host trên GitHub Pages, mọi người trên cùng domain sẽ chia chung kết quả.</div>
+    </section>
+
+    <section class="card">
+      <div class="small admin-note">Hướng dẫn nhanh:</div>
+      <ul class="small">
+        <li>Gửi cho người chơi file này (hoặc up lên GitHub Pages / Netlify). Người chơi chỉ nhập tên và bấm "Random".</li>
+        <li>Admin mở cùng file với <code>?admin=1</code> ở cuối URL để xem danh sách đầy đủ.</li>
+        <li>Nếu 6 người đã đầy, hệ thống sẽ báo đầy và không nhận thêm.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="small">Made for DSTD — Lightweight random team picker</div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'amazing_dstd_v1';
+  const MAX_PER_TEAM = 3;
+  const TOTAL_ALLOWED = 6; // total joiners
+  const TEAM_A_NAME = 'Đội Gia Bách';
+  const TEAM_B_NAME = 'Đội Anh Thư';
+
+  // DOM
+  const nameInput = document.getElementById('nameInput');
+  const joinBtn = document.getElementById('joinBtn');
+  const playerResult = document.getElementById('playerResult');
+  const adminCard = document.getElementById('adminCard');
+  const tableA = document.querySelector('#tableA tbody');
+  const tableB = document.querySelector('#tableB tbody');
+  const countA = document.getElementById('countA');
+  const countB = document.getElementById('countB');
+  const totalCount = document.getElementById('totalCount');
+  const exportBtn = document.getElementById('exportBtn');
+  const clearBtn = document.getElementById('clearBtn');
+
+  // Helpers
+  function nowTs(){ return new Date().toLocaleString(); }
+  function loadData(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function saveData(list){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  }
+  function counts(list){
+    const a = list.filter(i=>i.team==='A').length;
+    const b = list.filter(i=>i.team==='B').length;
+    return {a,b,total:list.length};
+  }
+  function renderAdmin(){
+    const list = loadData();
+    const c = counts(list);
+    countA.textContent = c.a;
+    countB.textContent = c.b;
+    totalCount.textContent = c.total;
+    tableA.innerHTML = '';
+    tableB.innerHTML = '';
+    list.filter(i=>i.team==='A').forEach(item=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(item.name)}</td><td class="small">${escapeHtml(item.time)}</td>`;
+      tableA.appendChild(tr);
+    });
+    list.filter(i=>i.team==='B').forEach(item=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(item.name)}</td><td class="small">${escapeHtml(item.time)}</td>`;
+      tableB.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+
+  function chooseTeam(list){
+    const c = counts(list);
+    if(c.total >= TOTAL_ALLOWED) return null;
+    const available = [];
+    if(c.a < MAX_PER_TEAM) available.push('A');
+    if(c.b < MAX_PER_TEAM) available.push('B');
+    if(available.length===0) return null;
+    // random pick among available to be fair
+    const pick = available[Math.floor(Math.random()*available.length)];
+    return pick;
+  }
+
+  function assignName(name){
+    if(!name) return {error:'Vui lòng nhập tên.'};
+    const list = loadData();
+    // check duplicate name (case-insensitive)
+    const exists = list.find(i=>i.name.trim().toLowerCase()===name.trim().toLowerCase());
+    if(exists) return {ok:true, team:exists.team, repeat:true};
+    const team = chooseTeam(list);
+    if(!team) return {error:'Đã đủ 6 người hoặc cả hai đội đã đầy.'};
+    const entry = {name:name.trim(), team:team, time: nowTs()};
+    list.push(entry);
+    saveData(list);
+    return {ok:true, team:team, entry};
+  }
+
+  // UI actions
+  joinBtn.addEventListener('click', ()=>{
+    const name = nameInput.value.trim();
+    const res = assignName(name);
+    if(res.error){
+      playerResult.className = 'result';
+      playerResult.innerHTML = `<div class="danger">${escapeHtml(res.error)}</div>`;
+      return;
+    }
+    if(res.repeat){
+      const t = res.team==='A' ? `<span class="team-badge tb-blue">${TEAM_A_NAME} 💙</span>` : `<span class="team-badge tb-purple">${TEAM_B_NAME} 💜</span>`;
+      playerResult.className = 'result';
+      playerResult.innerHTML = `<div>Bạn đã đăng ký trước đó. Bạn thuộc ${t}.</div>`;
+      nameInput.value = '';
+      return;
+    }
+    const teamLabel = res.team==='A' ? `<span class="team-badge tb-blue">${TEAM_A_NAME} 💙</span>` : `<span class="team-badge tb-purple">${TEAM_B_NAME} 💜</span>`;
+    playerResult.className = 'result';
+    playerResult.innerHTML = `<div>Chúc mừng! Bạn thuộc ${teamLabel}.</div>`;
+    nameInput.value = '';
+    // do not show other names
+    renderAdmin();
+  });
+
+  // Export CSV
+  exportBtn.addEventListener('click', ()=>{
+    const list = loadData();
+    if(list.length===0){ alert('Chưa có dữ liệu để xuất.'); return; }
+    const header = ['Tên','Đội','Thời gian'];
+    const rows = list.map(i=>[i.name, i.team==='A' ? TEAM_A_NAME : TEAM_B_NAME, i.time]);
+    const csv = [header.join(','), ...rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'amazing_dstd_export.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  clearBtn.addEventListener('click', ()=>{
+    if(!confirm('Xóa toàn bộ dữ liệu localStorage cho ứng dụng này? Hành động không thể hoàn tác.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    renderAdmin();
+    alert('Đã xóa dữ liệu.');
+  });
+
+  // Init: check admin mode via ?admin=1
+  function isAdminMode(){
+    try{
+      const q = new URLSearchParams(window.location.search);
+      return q.get('admin') === '1';
+    }catch(e){ return false; }
+  }
+
+  if(isAdminMode()){
+    adminCard.classList.remove('hidden');
+    renderAdmin();
+  } else {
+    // hide adminCard by default
+    adminCard.classList.add('hidden');
+  }
+
+  // Initial render counts (in case admin opens later)
+  renderAdmin();
+
+  // Accessibility: allow Enter key
+  nameInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ joinBtn.click(); } });
+
+})();
+</script>
+</body>
+</html>
